@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interview Practice – Strengths</title>
+  <style>
+    :root {
+      --navy: #14213D;
+      --gold: #FBC02D;
+      --gray: #E5E5E5;
+      --white: #FFFFFF;
+      --black: #000000;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--gray);
+      color: var(--black);
+      font: 15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    .wrap { max-width: 880px; margin: 0 auto; padding: 14px; }
+    .card {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      border: 1px solid var(--navy);
+    }
+
+    /* header */
+    .toprow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo img { width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--navy); }
+    h1 { font-size: 20px; margin: 0; color: var(--navy); }
+    .small { margin: 2px 0 0 0; font-size: 12px; color: var(--black); }
+
+    /* progress */
+    .progress {
+      width: 200px; height: 6px;
+      background: var(--gray);
+      border: 1px solid var(--navy);
+      border-radius: 999px; overflow: hidden;
+    }
+    .bar { height: 100%; background: var(--gold); width: 0%; }
+
+    /* chat area */
+    .chat {
+      height: 58vh;
+      overflow: auto;
+      border-radius: 10px;
+      background: var(--white);
+      padding: 10px;
+      border: 1px solid var(--navy);
+    }
+    .msg { display: flex; gap: 8px; margin: 8px 0; align-items: flex-start; }
+    .bubble {
+      padding: 8px 10px;
+      border-radius: 10px;
+      max-width: 78%;
+    }
+    .bot .bubble {
+      background: var(--navy);
+      color: var(--white);
+      border: 1px solid var(--black);
+    }
+    .user .bubble {
+      background: var(--gold);
+      color: var(--black);
+      border: 1px solid var(--black);
+    }
+    .who { font-size: 11px; color: var(--black); margin-bottom: 3px; }
+
+    /* input */
+    .inputbar { display: flex; gap: 8px; margin-top: 8px; }
+    textarea {
+      flex: 1; resize: none; height: 56px;
+      border-radius: 9px; padding: 9px;
+      background: var(--white); border: 1px solid var(--navy);
+      color: var(--black);
+    }
+    textarea:focus {
+      outline: 2px solid var(--gold);
+    }
+    button {
+      background: var(--navy);
+      color: var(--white);
+      border: none;
+      border-radius: 9px;
+      padding: 9px 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #0f1a30; }
+    button:focus { outline: 2px solid var(--gold); }
+    button[disabled] { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="toprow">
+        <div class="brand">
+          <span class="logo">
+            <!-- logo file should be in repo root -->
+            <img src="tnsi-logo.png" alt="The Next Step logo" />
+          </span>
+          <div>
+            <h1>Interview Practice – Strengths</h1>
+            <p class="small">~5–7 minutes • Be yourself • Your responses aren’t saved</p>
+          </div>
+        </div>
+        <div class="progress" aria-label="progress">
+          <div id="bar" class="bar"></div>
+        </div>
+      </div>
+
+      <div id="chat" class="chat" aria-live="polite"></div>
+
+      <div class="inputbar">
+        <textarea id="input" placeholder="Type your response…"></textarea>
+        <button id="send">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatEl = document.getElementById('chat');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('send');
+    const barEl = document.getElementById('bar');
+
+    const history = [];
+    const MAX_TURNS = 14;
+
+    function add(role, text){
+      history.push({ role, content: text });
+      const row = document.createElement('div');
+      row.className = 'msg ' + (role === 'assistant' ? 'bot' : 'user');
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      const who = document.createElement('div');
+      who.className = 'who';
+      who.textContent = role === 'assistant' ? 'Interviewer' : 'You';
+      const body = document.createElement('div');
+      body.innerText = text;
+      bubble.appendChild(who);
+      bubble.appendChild(body);
+      row.appendChild(bubble);
+      chatEl.appendChild(row);
+      chatEl.scrollTop = chatEl.scrollHeight;
+
+      const turns = Math.min(history.filter(m => m.role !== 'system').length, MAX_TURNS * 2);
+      const pct = Math.min(100, Math.round( (turns / (MAX_TURNS*2)) * 100 ));
+      barEl.style.width = pct + '%';
+    }
+
+    async function ask(){
+      const userText = inputEl.value.trim();
+      if(!userText) return;
+      inputEl.value = '';
+      sendBtn.disabled = true;
+
+      add('user', userText);
+
+      try{
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ messages: history, maxTurns: MAX_TURNS })
+        });
+        if(!res.ok){
+          const err = await res.text();
+          add('assistant', '(Sorry—there was a server error. Please try again in a moment.)');
+          console.error(err);
+        } else {
+          const data = await res.json();
+          add('assistant', data.reply);
+        }
+      } catch(e){
+        console.error(e);
+        add('assistant', '(Network error. Check connection and try again.)');
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener('click', ask);
+    inputEl.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); ask(); }});
+
+    function boot(){
+      add('assistant',
+        "Hi there 👋 Before we jump into a mock interview, let’s warm up. If your best friend had to describe you in three words, what would they say?"
+      );
+    }
+    boot();
+  </script>
+</body>
+</html>
